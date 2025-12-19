@@ -23,11 +23,11 @@
 
 **Purpose**: Project initialization and basic structure
 
-- [ ] T001 Create project directory structure per implementation plan (`cmd/`, `internal/`, `tests/`)
-- [ ] T002 Initialize Go module with `go mod init github.com/iiharu/mcp-over-socks`
-- [ ] T003 Add dependencies: `github.com/modelcontextprotocol/go-sdk`, `golang.org/x/net/proxy`
-- [ ] T004 [P] Create Makefile with build, test, lint targets in `Makefile`
-- [ ] T005 [P] Create .gitignore for Go project in `.gitignore`
+- [x] T001 Create project directory structure per implementation plan (`cmd/`, `internal/`, `tests/`)
+- [x] T002 Initialize Go module with `go mod init github.com/iiharu/mcp-over-socks`
+- [x] T003 Add dependencies: `github.com/modelcontextprotocol/go-sdk`, `golang.org/x/net/proxy`
+- [x] T004 [P] Create Makefile with build, test, lint targets in `Makefile`
+- [x] T005 [P] Create .gitignore for Go project in `.gitignore`
 
 **Checkpoint**: Project structure ready for development
 
@@ -39,10 +39,10 @@
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T006 Implement Logger with log levels in `internal/logging/logger.go`
-- [ ] T007 [P] Implement Config struct with validation in `internal/config/config.go`
-- [ ] T008 Implement CLI flag parsing in `cmd/mcp-over-socks/main.go` (--proxy, --server, --help, --timeout, --log)
-- [ ] T009 [P] Implement SOCKS5 Dialer wrapper in `internal/transport/socks.go`
+- [x] T006 Implement Logger with log levels in `internal/logging/logger.go`
+- [x] T007 [P] Implement Config struct with validation in `internal/config/config.go`
+- [x] T008 Implement CLI flag parsing in `cmd/mcp-over-socks/main.go` (--proxy, --server, --help, --timeout, --log)
+- [x] T009 [P] Implement SOCKS5 Dialer wrapper in `internal/transport/socks.go`
 
 **Checkpoint**: Foundation ready - user story implementation can now begin
 
@@ -56,18 +56,18 @@
 
 ### Implementation for User Story 1
 
-- [ ] T010 [US1] Implement SSEClient struct with Connect, Send, Receive, Close in `internal/transport/sse.go`
-- [ ] T011 [US1] Implement SSE event parsing (data: lines) in `internal/transport/sse.go`
-- [ ] T012 [US1] Implement Bridge struct with Run method in `internal/bridge/bridge.go`
-- [ ] T013 [US1] Integrate Bridge with MCP Server (using mcp.NewServer) in `internal/bridge/bridge.go`
-- [ ] T014 [US1] Wire up main.go to create Config, Logger, SSEClient, Bridge and run in `cmd/mcp-over-socks/main.go`
-- [ ] T015 [US1] Add stdio transport handling (stdin read loop, stdout write) in `internal/bridge/bridge.go`
+- [x] T010 [US1] Implement SSEClient struct with Connect, Send, Receive, Close in `internal/transport/sse.go`
+- [x] T011 [US1] Implement SSE event parsing (data: lines) in `internal/transport/sse.go`
+- [x] T012 [US1] Implement Bridge struct with Run method in `internal/bridge/bridge.go`
+- [x] T013 [US1] Integrate Bridge with MCP Server (using mcp.NewServer) in `internal/bridge/bridge.go`
+- [x] T014 [US1] Wire up main.go to create Config, Logger, SSEClient, Bridge and run in `cmd/mcp-over-socks/main.go`
+- [x] T015 [US1] Add stdio transport handling (stdin read loop, stdout write) in `internal/bridge/bridge.go`
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Unit test for Config validation in `tests/unit/config_test.go`
-- [ ] T017 [P] [US1] Unit test for SSE event parsing in `tests/unit/sse_test.go`
-- [ ] T018 [US1] Integration test with mock SSE server in `tests/integration/bridge_test.go`
+- [x] T016 [P] [US1] Unit test for Config validation in `tests/unit/config_test.go`
+- [x] T017 [P] [US1] Unit test for SSE event parsing in `tests/unit/sse_test.go`
+- [x] T018 [US1] Integration test with mock SSE server in `tests/integration/bridge_test.go`
 
 **Checkpoint**: MVP complete - SSE MCP サーバーに SOCKS 経由で接続可能
 
@@ -81,16 +81,16 @@
 
 ### Implementation for User Story 2
 
-- [ ] T019 [US2] Define error types (ErrInvalidConfig, ErrProxyConnection, ErrServerConnection) in `internal/bridge/errors.go`
-- [ ] T020 [US2] Add SOCKS proxy connection error handling with user-friendly messages in `internal/transport/socks.go`
-- [ ] T021 [US2] Add SSE server connection error handling with user-friendly messages in `internal/transport/sse.go`
-- [ ] T022 [US2] Add argument validation errors with help display in `cmd/mcp-over-socks/main.go`
-- [ ] T023 [US2] Add connection state logging (connecting, connected, disconnected) in `internal/bridge/bridge.go`
+- [x] T019 [US2] Define error types (ErrInvalidConfig, ErrProxyConnection, ErrServerConnection) in `internal/bridge/errors.go`
+- [x] T020 [US2] Add SOCKS proxy connection error handling with user-friendly messages in `internal/transport/socks.go`
+- [x] T021 [US2] Add SSE server connection error handling with user-friendly messages in `internal/transport/sse.go`
+- [x] T022 [US2] Add argument validation errors with help display in `cmd/mcp-over-socks/main.go`
+- [x] T023 [US2] Add connection state logging (connecting, connected, disconnected) in `internal/bridge/bridge.go`
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Unit test for error messages in `tests/unit/errors_test.go`
-- [ ] T025 [US2] Integration test for connection failure scenarios in `tests/integration/error_handling_test.go`
+- [x] T024 [P] [US2] Unit test for error messages in `tests/unit/errors_test.go`
+- [x] T025 [US2] Integration test for connection failure scenarios in `tests/integration/error_handling_test.go`
 
 **Checkpoint**: エラーハンドリング完了 - ユーザーは接続問題を診断可能
 
@@ -104,15 +104,15 @@
 
 ### Implementation for User Story 3
 
-- [ ] T026 [US3] Implement StreamableHTTPClient in `internal/transport/streamable_http.go`
-- [ ] T027 [US3] Add transport type detection (SSE vs Streamable HTTP) based on server response in `internal/transport/detector.go`
-- [ ] T028 [US3] Update Bridge to support both transport types in `internal/bridge/bridge.go`
-- [ ] T029 [US3] Add --transport flag for manual override (auto, sse, streamable) in `cmd/mcp-over-socks/main.go`
+- [x] T026 [US3] Implement StreamableHTTPClient in `internal/transport/streamable_http.go`
+- [x] T027 [US3] Add transport type detection (SSE vs Streamable HTTP) based on server response in `internal/transport/detector.go`
+- [x] T028 [US3] Update Bridge to support both transport types in `internal/bridge/bridge.go`
+- [x] T029 [US3] Add --transport flag for manual override (auto, sse, streamable) in `cmd/mcp-over-socks/main.go`
 
 ### Tests for User Story 3
 
-- [ ] T030 [P] [US3] Unit test for transport detection in `tests/unit/detector_test.go`
-- [ ] T031 [US3] Integration test with mock Streamable HTTP server in `tests/integration/streamable_http_test.go`
+- [x] T030 [P] [US3] Unit test for transport detection in `tests/unit/detector_test.go`
+- [x] T031 [US3] Integration test with mock Streamable HTTP server in `tests/integration/streamable_http_test.go`
 
 **Checkpoint**: 複数トランスポートサポート完了
 
@@ -122,9 +122,9 @@
 
 **Purpose**: Improvements that affect multiple user stories
 
-- [ ] T032 [P] Update README.md with installation, usage, and examples
-- [ ] T033 [P] Add GoReleaser configuration for cross-platform builds in `.goreleaser.yml`
-- [ ] T034 [P] Add GitHub Actions workflow for CI/CD in `.github/workflows/ci.yml`
+- [x] T032 [P] Update README.md with installation, usage, and examples
+- [x] T033 [P] Add GoReleaser configuration for cross-platform builds in `.goreleaser.yml`
+- [x] T034 [P] Add GitHub Actions workflow for CI/CD in `.github/workflows/ci.yml`
 - [ ] T035 Run quickstart.md validation (manual test with real SOCKS proxy)
 - [ ] T036 Performance profiling and optimization if needed
 
