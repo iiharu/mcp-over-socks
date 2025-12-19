@@ -1,0 +1,119 @@
+<!--
+Sync Impact Report
+==================
+Version change: 1.1.1 → 1.2.0
+
+Modified sections:
+  - Principle IV: 複数設定方法 → コマンドライン引数のみに簡略化
+
+Added sections: None
+
+Removed sections: None
+
+Templates requiring updates:
+  - ✅ plan-template.md (compatible with current principles)
+  - ✅ spec-template.md (compatible with current principles)
+  - ✅ tasks-template.md (compatible with current principles)
+
+Follow-up TODOs: None
+
+Change rationale: 設定方法の簡略化（MINOR バージョンアップ）
+  - MVP として引数のみのシンプルな設定方法を採用
+  - 将来的に環境変数・設定ファイルのサポートを追加可能
+-->
+
+# MCP over SOCKS Constitution
+
+## Core Principles
+
+### I. Stdio Bridge Interface
+
+このプロジェクトは Cursor との通信において標準入出力 (stdio) ベースの MCP サーバーとして振る舞う。
+
+- システムは stdin からの JSON-RPC リクエストを受け付け、stdout に JSON-RPC レスポンスを出力しなければならない (MUST)
+- エラーメッセージおよびログは stderr に出力しなければならない (MUST)
+- Cursor の MCP 設定において `command` 形式で起動可能でなければならない (MUST)
+
+**根拠**: Cursor は stdio MCP サーバーのみで環境変数設定をサポートしており、SSE/Streamable HTTP MCP では環境変数を渡せない。stdio インターフェースを介することでこの制約を回避する。
+
+### II. SOCKS5 Proxy Routing
+
+すべてのリモート MCP サーバーへの接続は SOCKS5 プロキシを経由しなければならない。
+
+- SOCKS5 プロトコルに準拠した接続を確立しなければならない (MUST)
+- プロキシ設定（ホスト、ポート、認証情報）は設定ファイルから読み込まなければならない (MUST)
+- プロキシ接続失敗時は明確なエラーメッセージを返さなければならない (MUST)
+- SOCKS5 認証（ユーザー名/パスワード）をサポートすべきである (SHOULD)
+
+**根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。
+
+### III. Protocol Translation
+
+stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わなければならない。
+
+- SSE (Server-Sent Events) プロトコルをサポートしなければならない (MUST)
+- Streamable HTTP プロトコルをサポートすべきである (SHOULD)
+- MCP メッセージの内容は一切改変せず透過的に転送しなければならない (MUST)
+- 接続タイムアウトおよび再接続ロジックを実装しなければならない (MUST)
+
+**根拠**: 様々な MCP サーバー実装との互換性を確保するため、複数のトランスポートプロトコルをサポートする。
+
+### IV. Command-Line Configuration
+
+設定はコマンドライン引数から読み込む。
+
+- すべての設定はコマンドライン引数で指定しなければならない (MUST)
+- 必須引数: プロキシアドレス（`--proxy`）、リモート MCP サーバー URL（`--server`）
+- オプション引数: タイムアウト、ログレベル
+- 引数のバリデーションを行い、不正な値または必須引数の欠落時は起動を中止しなければならない (MUST)
+- ヘルプオプション（`--help`）で使用方法を表示しなければならない (MUST)
+
+**根拠**: MVP としてシンプルさを優先し、引数のみの設定方法を採用。Cursor の `args` 設定で直接指定可能。将来的に必要に応じて環境変数・設定ファイルのサポートを追加できる。
+
+### V. Error Handling & Resilience
+
+エラー状態を適切に処理し、可能な限りサービスを継続する。
+
+- ネットワークエラー時は自動的に再接続を試みるべきである (SHOULD)
+- 回復不可能なエラーは MCP エラーレスポンスとして返さなければならない (MUST)
+- すべてのエラーは stderr にログ出力しなければならない (MUST)
+- 接続状態の変化（接続、切断、再接続）をログに記録しなければならない (MUST)
+
+**根拠**: ネットワーク経由の接続は不安定になりうるため、堅牢なエラー処理が必要。
+
+## Technology Stack
+
+プロジェクトの技術スタック:
+
+- **言語**: Go 1.21+
+- **SOCKS ライブラリ**: `golang.org/x/net/proxy`（Go 準標準ライブラリ）
+- **MCP SDK**: 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`)
+- **ビルドツール**: Go modules (`go mod`)
+- **パッケージング**: 単一バイナリとして配布（クロスコンパイル対応）
+
+### 依存関係の方針
+
+- 極力公式または準標準ライブラリのみを使用する (MUST)
+- サードパーティライブラリの追加は、公式に代替がない場合のみ許可される
+- 追加する場合は、メンテナンス状況とセキュリティを評価しなければならない
+
+## Development Workflow
+
+開発ワークフロー:
+
+- **テスト**: `go test` によるユニットテストおよび統合テストを作成
+- **CI/CD**: GitHub Actions を使用
+- **コードスタイル**: `gofmt` および `go vet` を使用
+- **静的解析**: `staticcheck` または `golangci-lint` を使用
+- **ドキュメント**: README に使用方法、設定例、トラブルシューティングを記載
+- **リリース**: セマンティックバージョニングに従い、GoReleaser でビルド・配布
+
+## Governance
+
+- この Constitution はプロジェクトのすべての設計判断において優先される
+- 原則の変更は本ドキュメントの更新、レビュー、および移行計画を必要とする
+- すべての PR/レビューは原則への準拠を確認しなければならない
+- 複雑さの追加は Complexity Tracking セクションで正当化しなければならない
+- 開発ガイダンスは `docs/development.md` に記載する（必要に応じて作成）
+
+**Version**: 1.2.0 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
