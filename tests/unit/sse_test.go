@@ -147,4 +147,3 @@ func parseSSEEvents(input string) []SSEEvent {
 
 	return events
 }
-

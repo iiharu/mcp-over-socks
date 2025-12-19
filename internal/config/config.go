@@ -10,7 +10,10 @@ import (
 
 // Config holds the configuration for the bridge.
 type Config struct {
-	// ProxyAddr is the SOCKS5 proxy address (e.g., "socks5://localhost:1080").
+	// ProxyAddr is the SOCKS5 proxy address.
+	// Supported schemes:
+	//   - socks5://  - Local DNS resolution (resolve hostname locally before connecting)
+	//   - socks5h:// - Remote DNS resolution (let the proxy server resolve the hostname)
 	ProxyAddr string
 
 	// ServerURL is the remote MCP server URL (e.g., "http://remote:8080/sse").
@@ -37,8 +40,8 @@ func (c *Config) Validate() error {
 		return errors.New("proxy address is required (use --proxy)")
 	}
 
-	if !strings.HasPrefix(c.ProxyAddr, "socks5://") {
-		return errors.New("proxy address must start with socks5://")
+	if !strings.HasPrefix(c.ProxyAddr, "socks5://") && !strings.HasPrefix(c.ProxyAddr, "socks5h://") {
+		return errors.New("proxy address must start with socks5:// or socks5h://")
 	}
 
 	// Validate proxy URL format
@@ -93,3 +96,16 @@ func (c *Config) ProxyAuth() (username, password string, ok bool) {
 	return u.User.Username(), password, hasPassword
 }
 
+// IsRemoteDNS returns true if the proxy should perform DNS resolution (socks5h://).
+func (c *Config) IsRemoteDNS() bool {
+	return strings.HasPrefix(c.ProxyAddr, "socks5h://")
+}
+
+// ProxyScheme returns the proxy scheme ("socks5" or "socks5h").
+func (c *Config) ProxyScheme() string {
+	u, err := url.Parse(c.ProxyAddr)
+	if err != nil {
+		return ""
+	}
+	return u.Scheme
+}

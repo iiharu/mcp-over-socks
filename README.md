@@ -5,6 +5,8 @@ A bridge that allows you to connect to SSE/Streamable HTTP MCP (Model Context Pr
 ## Features
 
 - **SOCKS5 Proxy Support**: Connect to MCP servers through SOCKS5 proxies
+  - `socks5://` - Local DNS resolution (resolve hostname before connecting)
+  - `socks5h://` - Remote DNS resolution (let the proxy resolve the hostname)
 - **SSE Transport**: Full support for Server-Sent Events MCP transport
 - **Streamable HTTP Transport**: Support for Streamable HTTP MCP transport
 - **Auto-detection**: Automatically detects the transport type (SSE vs Streamable HTTP)
@@ -32,8 +34,14 @@ go install github.com/iiharu/mcp-over-socks/cmd/mcp-over-socks@latest
 ### Basic Usage
 
 ```bash
+# Local DNS resolution (resolve hostname before connecting to proxy)
 mcp-over-socks --proxy socks5://localhost:1080 --server http://mcp.example.com/sse
+
+# Remote DNS resolution (let the proxy resolve the hostname)
+mcp-over-socks --proxy socks5h://localhost:1080 --server http://internal-server.corp.local/sse
 ```
+
+Use `socks5h://` when the MCP server hostname is only resolvable within the remote network (e.g., internal DNS names).
 
 ### Command Line Options
 
@@ -41,7 +49,9 @@ mcp-over-socks --proxy socks5://localhost:1080 --server http://mcp.example.com/s
 Usage: mcp-over-socks [options]
 
 Required:
-  --proxy      SOCKS5 proxy URL (e.g., socks5://localhost:1080)
+  --proxy      SOCKS5 proxy URL
+               - socks5://host:port  (local DNS resolution)
+               - socks5h://host:port (remote DNS resolution)
   --server     Remote MCP server URL (e.g., http://remote:8080/sse)
 
 Optional:
@@ -84,13 +94,15 @@ Add to your `~/.cursor/mcp.json`:
        "internal-mcp": {
          "command": "mcp-over-socks",
          "args": [
-           "--proxy", "socks5://127.0.0.1:1080",
+           "--proxy", "socks5h://127.0.0.1:1080",
            "--server", "http://internal-server.corp.example.com/mcp/sse"
          ]
        }
      }
    }
    ```
+
+> **Note**: Use `socks5h://` when the internal server hostname is only resolvable from the jump host.
 
 ## Architecture
 
@@ -159,8 +171,14 @@ go test -v ./...
 ### Cannot connect to SOCKS proxy
 
 1. Verify the SOCKS proxy is running
-2. Check the proxy address format: `socks5://host:port`
+2. Check the proxy address format: `socks5://host:port` or `socks5h://host:port`
 3. Ensure no firewall is blocking the connection
+
+### Cannot resolve internal hostname
+
+If you're connecting to an internal server with a hostname only resolvable within the remote network:
+1. Use `socks5h://` instead of `socks5://` to enable remote DNS resolution
+2. Verify the hostname is correct and resolvable from the proxy server
 
 ### Cannot connect to MCP server
 

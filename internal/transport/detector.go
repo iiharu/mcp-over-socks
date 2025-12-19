@@ -99,4 +99,3 @@ func CreateTransport(
 		return NewSSEClient(serverURL, httpClient, timeout)
 	}
 }
-

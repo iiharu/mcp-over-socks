@@ -252,4 +252,3 @@ func (c *SSEClient) Close() error {
 func (c *SSEClient) ServerURL() string {
 	return c.serverURL
 }
-

@@ -100,4 +100,3 @@ func (l *Logger) Info(format string, args ...interface{}) {
 func (l *Logger) Debug(format string, args ...interface{}) {
 	l.log(LogLevelDebug, format, args...)
 }
-

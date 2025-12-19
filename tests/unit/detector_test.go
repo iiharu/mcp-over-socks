@@ -91,4 +91,3 @@ func TestTransportTypeString(t *testing.T) {
 		})
 	}
 }
-

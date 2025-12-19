@@ -1,10 +1,10 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.1 → 1.2.0
+Version change: 1.2.0 → 1.2.1
 
 Modified sections:
-  - Principle IV: 複数設定方法 → コマンドライン引数のみに簡略化
+  - Principle II: SOCKS5 Proxy Routing - socks5h:// サポートを追加
 
 Added sections: None
 
@@ -15,11 +15,13 @@ Templates requiring updates:
   - ✅ spec-template.md (compatible with current principles)
   - ✅ tasks-template.md (compatible with current principles)
 
-Follow-up TODOs: None
+Follow-up TODOs:
+  - 実装: internal/config/config.go で socks5h:// スキームをサポート
+  - 実装: internal/transport/socks.go でリモート DNS 解決を実装
 
-Change rationale: 設定方法の簡略化（MINOR バージョンアップ）
-  - MVP として引数のみのシンプルな設定方法を採用
-  - 将来的に環境変数・設定ファイルのサポートを追加可能
+Change rationale: SOCKS プロキシスキームの拡張（PATCH バージョンアップ）
+  - socks5:// (ローカル DNS 解決) に加えて socks5h:// (リモート DNS 解決) をサポート
+  - プライベートネットワーク内のホスト名解決に対応
 -->
 
 # MCP over SOCKS Constitution
@@ -41,11 +43,14 @@ Change rationale: 設定方法の簡略化（MINOR バージョンアップ）
 すべてのリモート MCP サーバーへの接続は SOCKS5 プロキシを経由しなければならない。
 
 - SOCKS5 プロトコルに準拠した接続を確立しなければならない (MUST)
-- プロキシ設定（ホスト、ポート、認証情報）は設定ファイルから読み込まなければならない (MUST)
+- 以下のプロキシスキームをサポートしなければならない (MUST):
+  - `socks5://` - ローカルで DNS 解決を行い、IP アドレスでプロキシに接続
+  - `socks5h://` - プロキシサーバー側（リモート）で DNS 解決を行う
+- プロキシ設定（ホスト、ポート、認証情報）はコマンドライン引数から読み込む (MUST)
 - プロキシ接続失敗時は明確なエラーメッセージを返さなければならない (MUST)
 - SOCKS5 認証（ユーザー名/パスワード）をサポートすべきである (SHOULD)
 
-**根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。
+**根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。`socks5h://` はプライベートネットワーク内でのみ解決可能なホスト名（例: 内部 DNS）へのアクセスに必須。
 
 ### III. Protocol Translation
 
@@ -64,7 +69,7 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 
 - すべての設定はコマンドライン引数で指定しなければならない (MUST)
 - 必須引数: プロキシアドレス（`--proxy`）、リモート MCP サーバー URL（`--server`）
-- オプション引数: タイムアウト、ログレベル
+- オプション引数: タイムアウト、ログレベル、トランスポートタイプ
 - 引数のバリデーションを行い、不正な値または必須引数の欠落時は起動を中止しなければならない (MUST)
 - ヘルプオプション（`--help`）で使用方法を表示しなければならない (MUST)
 
@@ -116,4 +121,4 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 - 複雑さの追加は Complexity Tracking セクションで正当化しなければならない
 - 開発ガイダンスは `docs/development.md` に記載する（必要に応じて作成）
 
-**Version**: 1.2.0 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
+**Version**: 1.2.1 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19

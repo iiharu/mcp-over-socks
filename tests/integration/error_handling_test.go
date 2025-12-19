@@ -93,10 +93,29 @@ func TestSSEClientConnectionErrors(t *testing.T) {
 
 func TestSOCKSDialerErrors(t *testing.T) {
 	t.Run("empty proxy address", func(t *testing.T) {
-		_, err := transport.NewSOCKSDialer("", nil)
+		_, err := transport.NewSOCKSDialer("", nil, false)
 		if err == nil {
 			t.Fatal("expected error for empty proxy address")
 		}
 	})
-}
 
+	t.Run("socks5h remote DNS", func(t *testing.T) {
+		dialer, err := transport.NewSOCKSDialer("localhost:1080", nil, true)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if !dialer.IsRemoteDNS() {
+			t.Error("expected IsRemoteDNS() to return true")
+		}
+	})
+
+	t.Run("socks5 local DNS", func(t *testing.T) {
+		dialer, err := transport.NewSOCKSDialer("localhost:1080", nil, false)
+		if err != nil {
+			t.Fatalf("unexpected error: %v", err)
+		}
+		if dialer.IsRemoteDNS() {
+			t.Error("expected IsRemoteDNS() to return false")
+		}
+	})
+}

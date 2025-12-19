@@ -140,4 +140,3 @@ func (c *StreamableHTTPClient) Close() error {
 func (c *StreamableHTTPClient) ServerURL() string {
 	return c.serverURL
 }
-

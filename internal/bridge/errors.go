@@ -96,4 +96,3 @@ func FormatUserFriendlyError(err error) string {
 		return err.Error()
 	}
 }
-

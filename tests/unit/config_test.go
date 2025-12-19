@@ -14,9 +14,19 @@ func TestConfigValidation(t *testing.T) {
 		errMsg  string
 	}{
 		{
-			name: "valid config",
+			name: "valid config with socks5",
 			config: &config.Config{
 				ProxyAddr: "socks5://localhost:1080",
+				ServerURL: "http://example.com/sse",
+				Timeout:   30,
+				LogLevel:  "info",
+			},
+			wantErr: false,
+		},
+		{
+			name: "valid config with socks5h (remote DNS)",
+			config: &config.Config{
+				ProxyAddr: "socks5h://localhost:1080",
 				ServerURL: "http://example.com/sse",
 				Timeout:   30,
 				LogLevel:  "info",
@@ -53,7 +63,7 @@ func TestConfigValidation(t *testing.T) {
 				LogLevel:  "info",
 			},
 			wantErr: true,
-			errMsg:  "proxy address must start with socks5://",
+			errMsg:  "proxy address must start with socks5:// or socks5h://",
 		},
 		{
 			name: "missing server URL",
@@ -216,3 +226,65 @@ func containsAt(s, substr string, start int) bool {
 	return false
 }
 
+func TestConfigIsRemoteDNS(t *testing.T) {
+	tests := []struct {
+		name      string
+		proxyAddr string
+		want      bool
+	}{
+		{
+			name:      "socks5 (local DNS)",
+			proxyAddr: "socks5://localhost:1080",
+			want:      false,
+		},
+		{
+			name:      "socks5h (remote DNS)",
+			proxyAddr: "socks5h://localhost:1080",
+			want:      true,
+		},
+		{
+			name:      "socks5h with auth",
+			proxyAddr: "socks5h://user:pass@localhost:1080",
+			want:      true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{ProxyAddr: tt.proxyAddr}
+			got := cfg.IsRemoteDNS()
+			if got != tt.want {
+				t.Errorf("IsRemoteDNS() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestConfigProxyScheme(t *testing.T) {
+	tests := []struct {
+		name      string
+		proxyAddr string
+		want      string
+	}{
+		{
+			name:      "socks5",
+			proxyAddr: "socks5://localhost:1080",
+			want:      "socks5",
+		},
+		{
+			name:      "socks5h",
+			proxyAddr: "socks5h://localhost:1080",
+			want:      "socks5h",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{ProxyAddr: tt.proxyAddr}
+			got := cfg.ProxyScheme()
+			if got != tt.want {
+				t.Errorf("ProxyScheme() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
