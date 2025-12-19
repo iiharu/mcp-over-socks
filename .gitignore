@@ -1,11 +1,3 @@
-# Binaries
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-mcp-over-socks
-
 # Build directory
 build/
 
