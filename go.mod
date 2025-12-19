@@ -1,6 +1,6 @@
 module github.com/iiharu/mcp-over-socks
 
-go 1.25.4
+go 1.24.0
 
 require (
 	github.com/modelcontextprotocol/go-sdk v1.1.0
