@@ -18,8 +18,9 @@
 **Acceptance Scenarios**:
 
 1. **Given** SOCKS プロキシが `localhost:1080` で動作中、SSE MCP サーバーが `http://remote:8080/sse` で動作中, **When** ユーザーが `mcp-over-socks --proxy socks5://localhost:1080 --server http://remote:8080/sse` を実行, **Then** ブリッジが起動し、stdin から JSON-RPC リクエストを受け付ける
-2. **Given** ブリッジが起動中, **When** Cursor から `tools/list` リクエストが送信される, **Then** リモート MCP サーバーのツール一覧が stdout に返される
-3. **Given** ブリッジが起動中, **When** Cursor から `tools/call` リクエストが送信される, **Then** リモート MCP サーバーでツールが実行され、結果が stdout に返される
+2. **Given** SOCKS プロキシが `localhost:1080` で動作中、内部 DNS でのみ解決可能な SSE MCP サーバーが `http://internal.local/sse` で動作中, **When** ユーザーが `mcp-over-socks --proxy socks5h://localhost:1080 --server http://internal.local/sse` を実行, **Then** ブリッジが起動し、プロキシサーバー側で DNS 解決が行われて接続に成功する
+3. **Given** ブリッジが起動中, **When** Cursor から `tools/list` リクエストが送信される, **Then** リモート MCP サーバーのツール一覧が stdout に返される
+4. **Given** ブリッジが起動中, **When** Cursor から `tools/call` リクエストが送信される, **Then** リモート MCP サーバーでツールが実行され、結果が stdout に返される
 
 ---
 
@@ -66,6 +67,7 @@
 
 - **FR-001**: システムは stdin から JSON-RPC リクエストを受信し、stdout に JSON-RPC レスポンスを出力しなければならない (MUST)
 - **FR-002**: システムは SOCKS5 プロキシ経由でリモート MCP サーバーに接続しなければならない (MUST)
+- **FR-002a**: システムは `socks5://` (ローカル DNS 解決) および `socks5h://` (リモート DNS 解決) の両方のプロキシスキームをサポートしなければならない (MUST)
 - **FR-003**: システムは SSE (Server-Sent Events) 形式の MCP サーバーをサポートしなければならない (MUST)
 - **FR-004**: システムは `--proxy` と `--server` のコマンドライン引数を受け付けなければならない (MUST)
 - **FR-005**: システムは `--help` オプションで使用方法を表示しなければならない (MUST)
@@ -76,9 +78,9 @@
 
 ### Key Entities
 
-- **Bridge**: stdio と HTTP/SSE 間のプロトコル変換を行うメインコンポーネント
+- **Bridge**: stdio と HTTP/SSE 間のプロトコル変換を行うメインコンポーネント（公式 MCP Go SDK を使用）
 - **SOCKS Client**: SOCKS5 プロキシ経由で TCP 接続を確立するコンポーネント
-- **SSE Transport**: SSE プロトコルで MCP メッセージを送受信するコンポーネント
+- **MCP SDK Transport**: 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`) の `SSEClientTransport` および `StreamableClientTransport` を使用
 - **Config**: コマンドライン引数から読み込んだ設定を保持する構造体
 
 ## Success Criteria *(mandatory)*
