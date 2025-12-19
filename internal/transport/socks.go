@@ -5,6 +5,7 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"time"
 
 	"golang.org/x/net/proxy"
 )
@@ -182,8 +183,9 @@ func (d *SOCKSDialer) HTTPTransport() *http.Transport {
 }
 
 // HTTPClient creates an http.Client that uses this SOCKS5 dialer.
-func (d *SOCKSDialer) HTTPClient() *http.Client {
+func (d *SOCKSDialer) HTTPClient(timeout time.Duration) *http.Client {
 	return &http.Client{
 		Transport: d.HTTPTransport(),
+		Timeout:   timeout,
 	}
 }

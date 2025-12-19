@@ -7,80 +7,94 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/iiharu/mcp-over-socks/internal/config"
 	"github.com/iiharu/mcp-over-socks/internal/logging"
-	"github.com/iiharu/mcp-over-socks/internal/transport"
+	"github.com/modelcontextprotocol/go-sdk/jsonrpc"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// Bridge connects stdio to a remote MCP server.
+// TransportType represents the type of transport to use.
+type TransportType string
+
+const (
+	// TransportSSE uses the SSE transport (2024-11-05 spec).
+	TransportSSE TransportType = "sse"
+	// TransportStreamable uses the Streamable HTTP transport (2025-03-26 spec).
+	TransportStreamable TransportType = "streamable"
+)
+
+// Bridge connects stdio to a remote MCP server using the official MCP SDK.
 type Bridge struct {
-	config    *config.Config
-	transport transport.Transport
-	sseClient *transport.SSEClient // For SSE-specific event handling
-	logger    *logging.Logger
+	config        *config.Config
+	logger        *logging.Logger
+	httpClient    *http.Client
+	transportType TransportType
 
 	stdin  io.Reader
 	stdout io.Writer
 }
 
-// New creates a new Bridge with SSE client (for backward compatibility).
-func New(cfg *config.Config, sseClient *transport.SSEClient, logger *logging.Logger) *Bridge {
+// New creates a new Bridge.
+func New(cfg *config.Config, httpClient *http.Client, logger *logging.Logger, transportType TransportType) *Bridge {
 	return &Bridge{
-		config:    cfg,
-		transport: sseClient,
-		sseClient: sseClient,
-		logger:    logger,
-		stdin:     os.Stdin,
-		stdout:    os.Stdout,
+		config:        cfg,
+		logger:        logger,
+		httpClient:    httpClient,
+		transportType: transportType,
+		stdin:         os.Stdin,
+		stdout:        os.Stdout,
 	}
-}
-
-// NewWithTransport creates a new Bridge with a generic transport.
-func NewWithTransport(cfg *config.Config, t transport.Transport, logger *logging.Logger) *Bridge {
-	b := &Bridge{
-		config:    cfg,
-		transport: t,
-		logger:    logger,
-		stdin:     os.Stdin,
-		stdout:    os.Stdout,
-	}
-	// Check if it's an SSE client for event handling
-	if sseClient, ok := t.(*transport.SSEClient); ok {
-		b.sseClient = sseClient
-	}
-	return b
 }
 
 // NewWithIO creates a new Bridge with custom IO (for testing).
-func NewWithIO(cfg *config.Config, sseClient *transport.SSEClient, logger *logging.Logger, stdin io.Reader, stdout io.Writer) *Bridge {
+func NewWithIO(cfg *config.Config, httpClient *http.Client, logger *logging.Logger, transportType TransportType, stdin io.Reader, stdout io.Writer) *Bridge {
 	return &Bridge{
-		config:    cfg,
-		transport: sseClient,
-		sseClient: sseClient,
-		logger:    logger,
-		stdin:     stdin,
-		stdout:    stdout,
+		config:        cfg,
+		logger:        logger,
+		httpClient:    httpClient,
+		transportType: transportType,
+		stdin:         stdin,
+		stdout:        stdout,
 	}
 }
 
 // Run starts the bridge and blocks until the context is cancelled or an error occurs.
 func (b *Bridge) Run(ctx context.Context) error {
-	// Log connection attempt
-	b.logger.Info("Connecting to MCP server: %s", b.transport.ServerURL())
+	b.logger.Info("Connecting to MCP server: %s", b.config.ServerURL)
 	b.logger.Debug("Using proxy: %s", b.config.ProxyAddr)
+	b.logger.Debug("Transport type: %s", b.transportType)
 
-	// Connect to server
-	if err := b.transport.Connect(ctx); err != nil {
+	// Create the appropriate transport
+	var transport mcp.Transport
+	switch b.transportType {
+	case TransportSSE:
+		transport = &mcp.SSEClientTransport{
+			Endpoint:   b.config.ServerURL,
+			HTTPClient: b.httpClient,
+		}
+	case TransportStreamable:
+		transport = &mcp.StreamableClientTransport{
+			Endpoint:   b.config.ServerURL,
+			HTTPClient: b.httpClient,
+		}
+	default:
+		return fmt.Errorf("unknown transport type: %s", b.transportType)
+	}
+
+	// Connect to the server
+	conn, err := transport.Connect(ctx)
+	if err != nil {
 		b.logger.Error("Connection failed: %v", err)
-		// Wrap with user-friendly error
 		return WrapError(ErrServerConnection, err.Error())
 	}
 	defer func() {
 		b.logger.Info("Disconnecting from MCP server")
-		b.transport.Close()
+		conn.Close()
 		b.logger.Debug("Connection closed")
 	}()
 
@@ -94,7 +108,7 @@ func (b *Bridge) Run(ctx context.Context) error {
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		if err := b.readStdin(ctx); err != nil {
+		if err := b.readStdin(ctx, conn); err != nil {
 			select {
 			case errCh <- fmt.Errorf("stdin reader error: %w", err):
 			default:
@@ -102,45 +116,30 @@ func (b *Bridge) Run(ctx context.Context) error {
 		}
 	}()
 
-	// Start event handler goroutine (for SSE transport)
-	if b.sseClient != nil {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			if err := b.handleSSEEvents(ctx); err != nil {
-				select {
-				case errCh <- fmt.Errorf("event handler error: %w", err):
-				default:
-				}
+	// Start response handler goroutine
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		if err := b.handleResponses(ctx, conn); err != nil {
+			select {
+			case errCh <- fmt.Errorf("response handler error: %w", err):
+			default:
 			}
-		}()
-	}
+		}
+	}()
 
 	// Wait for context cancellation or error
-	if b.sseClient != nil {
-		select {
-		case <-ctx.Done():
-			b.logger.Info("Shutting down bridge")
-			return nil
-		case err := <-errCh:
-			return err
-		case err := <-b.sseClient.Errors():
-			return fmt.Errorf("connection error: %w", err)
-		}
-	} else {
-		// For Streamable HTTP, just wait for stdin reader or context
-		select {
-		case <-ctx.Done():
-			b.logger.Info("Shutting down bridge")
-			return nil
-		case err := <-errCh:
-			return err
-		}
+	select {
+	case <-ctx.Done():
+		b.logger.Info("Shutting down bridge")
+		return nil
+	case err := <-errCh:
+		return err
 	}
 }
 
 // readStdin reads JSON-RPC requests from stdin and forwards them to the server.
-func (b *Bridge) readStdin(ctx context.Context) error {
+func (b *Bridge) readStdin(ctx context.Context, conn mcp.Connection) error {
 	scanner := bufio.NewScanner(b.stdin)
 	// Increase buffer size for large JSON messages
 	const maxScannerSize = 10 * 1024 * 1024 // 10MB
@@ -167,25 +166,18 @@ func (b *Bridge) readStdin(ctx context.Context) error {
 
 		b.logger.Debug("Sending request to server: %s", string(line))
 
-		if err := b.transport.Send(ctx, line); err != nil {
+		// Parse the message using the SDK's jsonrpc package
+		msg, err := jsonrpc.DecodeMessage(line)
+		if err != nil {
+			b.logger.Error("Failed to parse JSON-RPC message: %v", err)
+			continue
+		}
+
+		// Write to the connection
+		if err := conn.Write(ctx, msg); err != nil {
 			b.logger.Error("Failed to send request: %v", err)
 			// Send error response back to stdout
 			b.sendErrorResponse(line, err)
-		}
-
-		// For Streamable HTTP, handle response inline
-		if streamable, ok := b.transport.(*transport.StreamableHTTPClient); ok {
-			select {
-			case event := <-streamable.Events():
-				if event.Data != "" {
-					b.logger.Debug("Received response from server: %s", event.Data)
-					if _, err := fmt.Fprintln(b.stdout, event.Data); err != nil {
-						return fmt.Errorf("failed to write to stdout: %w", err)
-					}
-				}
-			case <-ctx.Done():
-				return nil
-			}
 		}
 	}
 
@@ -196,27 +188,48 @@ func (b *Bridge) readStdin(ctx context.Context) error {
 	return nil
 }
 
-// handleSSEEvents receives SSE events and writes them to stdout.
-func (b *Bridge) handleSSEEvents(ctx context.Context) error {
-	if b.sseClient == nil {
-		return nil
-	}
-
+// handleResponses reads responses from the connection and writes them to stdout.
+func (b *Bridge) handleResponses(ctx context.Context, conn mcp.Connection) error {
 	for {
 		select {
 		case <-ctx.Done():
 			return nil
-		case event := <-b.sseClient.Events():
-			if event.Data == "" {
+		default:
+		}
+
+		// Read from the connection with a timeout
+		readCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
+		msg, err := conn.Read(readCtx)
+		cancel()
+
+		if err != nil {
+			if ctx.Err() != nil {
+				return nil // Context cancelled, normal shutdown
+			}
+			if err == io.EOF {
+				b.logger.Info("Connection closed by server")
+				return nil
+			}
+			// Timeout is ok, just continue
+			if readCtx.Err() == context.DeadlineExceeded {
 				continue
 			}
+			b.logger.Error("Failed to read from connection: %v", err)
+			return err
+		}
 
-			b.logger.Debug("Received event from server: %s", event.Data)
+		// Encode the message to JSON using the SDK's jsonrpc package
+		data, err := jsonrpc.EncodeMessage(msg)
+		if err != nil {
+			b.logger.Error("Failed to encode response: %v", err)
+			continue
+		}
 
-			// Write the event data to stdout
-			if _, err := fmt.Fprintln(b.stdout, event.Data); err != nil {
-				return fmt.Errorf("failed to write to stdout: %w", err)
-			}
+		b.logger.Debug("Received response from server: %s", string(data))
+
+		// Write to stdout
+		if _, err := fmt.Fprintln(b.stdout, string(data)); err != nil {
+			return fmt.Errorf("failed to write to stdout: %w", err)
 		}
 	}
 }

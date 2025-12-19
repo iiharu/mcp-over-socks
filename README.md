@@ -2,6 +2,8 @@
 
 A bridge that allows you to connect to SSE/Streamable HTTP MCP (Model Context Protocol) servers through a SOCKS5 proxy. This tool acts as a stdio MCP server locally, enabling Cursor and other MCP clients to access remote MCP servers that are only reachable via SOCKS proxy.
 
+Built using the **official MCP Go SDK** ([github.com/modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk)).
+
 ## Features
 
 - **SOCKS5 Proxy Support**: Connect to MCP servers through SOCKS5 proxies
@@ -148,23 +150,24 @@ go test -v ./...
 │       └── main.go          # Entry point
 ├── internal/
 │   ├── bridge/
-│   │   ├── bridge.go        # Main bridge logic
+│   │   ├── bridge.go        # Main bridge logic (uses official MCP SDK)
 │   │   └── errors.go        # Error types
 │   ├── config/
 │   │   └── config.go        # Configuration
 │   ├── logging/
 │   │   └── logger.go        # Logger
 │   └── transport/
-│       ├── socks.go         # SOCKS5 dialer
-│       ├── sse.go           # SSE client
-│       ├── streamable_http.go # Streamable HTTP client
-│       └── detector.go      # Transport type detection
+│       └── socks.go         # SOCKS5 dialer
 ├── tests/
-│   ├── unit/
-│   └── integration/
+│   └── unit/
 ├── Makefile
 └── README.md
 ```
+
+### Dependencies
+
+- [github.com/modelcontextprotocol/go-sdk](https://github.com/modelcontextprotocol/go-sdk) - Official MCP Go SDK
+- [golang.org/x/net/proxy](https://pkg.go.dev/golang.org/x/net/proxy) - SOCKS5 proxy support
 
 ## Troubleshooting
 

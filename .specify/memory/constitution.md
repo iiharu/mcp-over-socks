@@ -1,10 +1,11 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.2.0 → 1.2.1
+Version change: 1.2.1 → 1.3.0
 
 Modified sections:
-  - Principle II: SOCKS5 Proxy Routing - socks5h:// サポートを追加
+  - Technology Stack: 公式 MCP Go SDK の使用を明確化
+  - Principle III: SDK のトランスポートを使用することを明記
 
 Added sections: None
 
@@ -15,13 +16,11 @@ Templates requiring updates:
   - ✅ spec-template.md (compatible with current principles)
   - ✅ tasks-template.md (compatible with current principles)
 
-Follow-up TODOs:
-  - 実装: internal/config/config.go で socks5h:// スキームをサポート
-  - 実装: internal/transport/socks.go でリモート DNS 解決を実装
+Follow-up TODOs: None
 
-Change rationale: SOCKS プロキシスキームの拡張（PATCH バージョンアップ）
-  - socks5:// (ローカル DNS 解決) に加えて socks5h:// (リモート DNS 解決) をサポート
-  - プライベートネットワーク内のホスト名解決に対応
+Change rationale: 公式 SDK 使用の明確化（MINOR バージョンアップ）
+  - 独自実装から公式 SDK (mcp.SSEClientTransport, mcp.StreamableClientTransport) への移行完了
+  - SDK の HTTPClient フィールドにカスタム HTTP クライアント（SOCKS プロキシ経由）を注入
 -->
 
 # MCP over SOCKS Constitution
@@ -52,16 +51,16 @@ Change rationale: SOCKS プロキシスキームの拡張（PATCH バージョ�
 
 **根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。`socks5h://` はプライベートネットワーク内でのみ解決可能なホスト名（例: 内部 DNS）へのアクセスに必須。
 
-### III. Protocol Translation
+### III. Protocol Translation (SDK Integration)
 
-stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わなければならない。
+公式 MCP Go SDK を使用して、stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を行う。
 
-- SSE (Server-Sent Events) プロトコルをサポートしなければならない (MUST)
-- Streamable HTTP プロトコルをサポートすべきである (SHOULD)
+- 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`) のトランスポートを使用しなければならない (MUST)
+- SDK の `SSEClientTransport` および `StreamableClientTransport` を使用し、`HTTPClient` フィールドに SOCKS プロキシ経由の HTTP クライアントを注入する (MUST)
+- SDK の `jsonrpc.DecodeMessage` / `jsonrpc.EncodeMessage` を使用してメッセージを処理する (MUST)
 - MCP メッセージの内容は一切改変せず透過的に転送しなければならない (MUST)
-- 接続タイムアウトおよび再接続ロジックを実装しなければならない (MUST)
 
-**根拠**: 様々な MCP サーバー実装との互換性を確保するため、複数のトランスポートプロトコルをサポートする。
+**根拠**: 公式 SDK を使用することで、MCP プロトコルの変更に追従しやすくなり、互換性の問題を最小限に抑えられる。
 
 ### IV. Command-Line Configuration
 
@@ -93,13 +92,17 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 - **言語**: Go 1.21+
 - **SOCKS ライブラリ**: `golang.org/x/net/proxy`（Go 準標準ライブラリ）
 - **MCP SDK**: 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`)
+  - `mcp.SSEClientTransport` - SSE トランスポート
+  - `mcp.StreamableClientTransport` - Streamable HTTP トランスポート
+  - `jsonrpc.DecodeMessage` / `jsonrpc.EncodeMessage` - メッセージのエンコード/デコード
 - **ビルドツール**: Go modules (`go mod`)
 - **パッケージング**: 単一バイナリとして配布（クロスコンパイル対応）
 
 ### 依存関係の方針
 
-- 極力公式または準標準ライブラリのみを使用する (MUST)
-- サードパーティライブラリの追加は、公式に代替がない場合のみ許可される
+- 公式 MCP Go SDK を使用する (MUST)
+- SOCKS プロキシ対応には `golang.org/x/net/proxy` を使用する (MUST)
+- その他のサードパーティライブラリの追加は、公式に代替がない場合のみ許可される
 - 追加する場合は、メンテナンス状況とセキュリティを評価しなければならない
 
 ## Development Workflow
@@ -121,4 +124,4 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 - 複雑さの追加は Complexity Tracking セクションで正当化しなければならない
 - 開発ガイダンスは `docs/development.md` に記載する（必要に応じて作成）
 
-**Version**: 1.2.1 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
+**Version**: 1.3.0 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
