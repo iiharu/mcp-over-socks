@@ -32,22 +32,35 @@ type Config struct {
 
 **Validation Rules**:
 - `ProxyAddr` は空でない (MUST)
-- `ProxyAddr` は `socks5://` で始まる (MUST)
+- `ProxyAddr` は `socks5://` または `socks5h://` で始まる (MUST)
+  - `socks5://` - ローカルで DNS 解決を行い、IP アドレスでプロキシに接続
+  - `socks5h://` - プロキシサーバー側（リモート）で DNS 解決を行う
 - `ServerURL` は空でない (MUST)
 - `ServerURL` は `http://` または `https://` で始まる (MUST)
 - `Timeout` > 0 (デフォルト: 30s)
 
 ### Bridge
 
-stdio と SSE 間のプロトコル変換を行うメインコンポーネント。
+stdio と SSE/Streamable HTTP 間のプロトコル変換を行うメインコンポーネント。公式 MCP Go SDK を使用する。
 
 ```go
 // Bridge はプロトコル変換を行う
 type Bridge struct {
-    config    *Config
-    sseClient *SSEClient
-    logger    *Logger
+    config        *Config
+    logger        *Logger
+    httpClient    *http.Client  // SOCKS プロキシ経由の HTTP クライアント
+    transportType TransportType  // "sse" または "streamable"
+    stdin         io.Reader
+    stdout        io.Writer
 }
+
+// TransportType はトランスポートタイプを表す
+type TransportType string
+
+const (
+    TransportSSE        TransportType = "sse"
+    TransportStreamable TransportType = "streamable"
+)
 
 // Bridge のインターフェース
 type BridgeInterface interface {
@@ -63,33 +76,10 @@ type BridgeInterface interface {
                     [Error] → exit(1)
 ```
 
-### SSEClient
-
-SSE プロトコルでリモート MCP サーバーと通信するクライアント。
-
-```go
-// SSEClient は SOCKS5 経由で SSE サーバーに接続する
-type SSEClient struct {
-    httpClient *http.Client
-    serverURL  string
-    dialer     proxy.Dialer
-}
-
-// SSEClient のインターフェース
-type SSEClientInterface interface {
-    // Connect は SSE ストリームに接続する
-    Connect(ctx context.Context) error
-
-    // Send は JSON-RPC リクエストを送信する
-    Send(ctx context.Context, request []byte) error
-
-    // Receive は JSON-RPC レスポンスを受信するチャネルを返す
-    Receive() <-chan []byte
-
-    // Close は接続を閉じる
-    Close() error
-}
-```
+**Implementation Notes**:
+- 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`) の `mcp.SSEClientTransport` または `mcp.StreamableClientTransport` を使用
+- SDK の `HTTPClient` フィールドに SOCKS プロキシ経由の HTTP クライアントを注入
+- SDK の `jsonrpc.DecodeMessage` / `jsonrpc.EncodeMessage` を使用してメッセージを処理
 
 ### Logger
 
@@ -125,8 +115,8 @@ const (
 ### Response Flow (Remote Server → Cursor)
 
 ```
-1. SSEClient が SSE イベントを受信
-2. data: フィールドから JSON-RPC レスポンスを抽出
+1. MCP SDK Transport が SSE/HTTP レスポンスを受信
+2. SDK の jsonrpc.DecodeMessage で JSON-RPC メッセージをデコード
 3. Bridge が stdout に出力
 ```
 
@@ -159,16 +149,17 @@ var ErrTimeout = errors.New("request timeout")
 ┌─────────────────────────────────────────────────────────┐
 │                        Bridge                           │
 │  - MCP Server として動作                                │
-│  - リクエストを SSEClient に委譲                        │
+│  - 公式 MCP Go SDK を使用                               │
+│  - リクエストを SDK Transport に委譲                   │
 │  - レスポンスを stdout に出力                           │
 └─────────────────────────────────────────────────────────┘
               │                            │
               ▼                            ▼
 ┌──────────────────────┐      ┌──────────────────────────┐
-│      SSEClient       │      │         Logger           │
-│  - SOCKS5 Dialer     │      │  - stderr 出力           │
-│  - HTTP Client       │      │  - ログレベル制御        │
-│  - SSE パース        │      │                          │
+│   MCP SDK Transport  │      │         Logger           │
+│  - SSEClientTransport│      │  - stderr 出力           │
+│  - StreamableClient  │      │  - ログレベル制御        │
+│  - SOCKS5 HTTP Client│      │                          │
 └──────────────────────┘      └──────────────────────────┘
 ```
 

@@ -30,8 +30,8 @@ SOCKS5 プロキシ経由で SSE/Streamable HTTP MCP サーバーに接続する
 | Principle | Status | Notes |
 |-----------|--------|-------|
 | I. Stdio Bridge Interface | ✅ PASS | stdin/stdout で JSON-RPC、stderr でログ |
-| II. SOCKS5 Proxy Routing | ✅ PASS | golang.org/x/net/proxy 使用 |
-| III. Protocol Translation | ✅ PASS | SSE (MUST)、Streamable HTTP (SHOULD) |
+| II. SOCKS5 Proxy Routing | ✅ PASS | golang.org/x/net/proxy 使用、socks5:// および socks5h:// サポート |
+| III. Protocol Translation (SDK Integration) | ✅ PASS | 公式 MCP Go SDK の SSEClientTransport/StreamableClientTransport 使用 |
 | IV. Command-Line Configuration | ✅ PASS | --proxy, --server, --help |
 | V. Error Handling & Resilience | ✅ PASS | エラーは stderr、接続状態ログ |
 
@@ -64,12 +64,12 @@ cmd/
 
 internal/
 ├── bridge/
-│   └── bridge.go        # stdio ↔ HTTP/SSE ブリッジのメインロジック
+│   ├── bridge.go        # stdio ↔ HTTP/SSE ブリッジのメインロジック（公式 MCP Go SDK 使用）
+│   └── errors.go        # エラー型定義
 ├── config/
-│   └── config.go        # コマンドライン引数のパース、バリデーション
+│   └── config.go        # コマンドライン引数のパース、バリデーション（socks5:// および socks5h:// サポート）
 ├── transport/
-│   ├── socks.go         # SOCKS5 プロキシ経由の Dialer
-│   └── sse.go           # SSE クライアント実装
+│   └── socks.go         # SOCKS5 プロキシ経由の Dialer（socks5:// および socks5h:// サポート）
 └── logging/
     └── logger.go        # stderr へのログ出力
 
