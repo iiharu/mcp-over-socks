@@ -1,10 +1,11 @@
 <!--
 Sync Impact Report
 ==================
-Version change: 1.1.1 → 1.2.0
+Version change: 1.2.1 → 1.3.0
 
 Modified sections:
-  - Principle IV: 複数設定方法 → コマンドライン引数のみに簡略化
+  - Technology Stack: 公式 MCP Go SDK の使用を明確化
+  - Principle III: SDK のトランスポートを使用することを明記
 
 Added sections: None
 
@@ -17,9 +18,9 @@ Templates requiring updates:
 
 Follow-up TODOs: None
 
-Change rationale: 設定方法の簡略化（MINOR バージョンアップ）
-  - MVP として引数のみのシンプルな設定方法を採用
-  - 将来的に環境変数・設定ファイルのサポートを追加可能
+Change rationale: 公式 SDK 使用の明確化（MINOR バージョンアップ）
+  - 独自実装から公式 SDK (mcp.SSEClientTransport, mcp.StreamableClientTransport) への移行完了
+  - SDK の HTTPClient フィールドにカスタム HTTP クライアント（SOCKS プロキシ経由）を注入
 -->
 
 # MCP over SOCKS Constitution
@@ -41,22 +42,25 @@ Change rationale: 設定方法の簡略化（MINOR バージョンアップ）
 すべてのリモート MCP サーバーへの接続は SOCKS5 プロキシを経由しなければならない。
 
 - SOCKS5 プロトコルに準拠した接続を確立しなければならない (MUST)
-- プロキシ設定（ホスト、ポート、認証情報）は設定ファイルから読み込まなければならない (MUST)
+- 以下のプロキシスキームをサポートしなければならない (MUST):
+  - `socks5://` - ローカルで DNS 解決を行い、IP アドレスでプロキシに接続
+  - `socks5h://` - プロキシサーバー側（リモート）で DNS 解決を行う
+- プロキシ設定（ホスト、ポート、認証情報）はコマンドライン引数から読み込む (MUST)
 - プロキシ接続失敗時は明確なエラーメッセージを返さなければならない (MUST)
 - SOCKS5 認証（ユーザー名/パスワード）をサポートすべきである (SHOULD)
 
-**根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。
+**根拠**: SOCKS プロキシ経由でのみアクセス可能なネットワーク環境に存在する MCP サーバーへの接続を可能にする。`socks5h://` はプライベートネットワーク内でのみ解決可能なホスト名（例: 内部 DNS）へのアクセスに必須。
 
-### III. Protocol Translation
+### III. Protocol Translation (SDK Integration)
 
-stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わなければならない。
+公式 MCP Go SDK を使用して、stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を行う。
 
-- SSE (Server-Sent Events) プロトコルをサポートしなければならない (MUST)
-- Streamable HTTP プロトコルをサポートすべきである (SHOULD)
+- 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`) のトランスポートを使用しなければならない (MUST)
+- SDK の `SSEClientTransport` および `StreamableClientTransport` を使用し、`HTTPClient` フィールドに SOCKS プロキシ経由の HTTP クライアントを注入する (MUST)
+- SDK の `jsonrpc.DecodeMessage` / `jsonrpc.EncodeMessage` を使用してメッセージを処理する (MUST)
 - MCP メッセージの内容は一切改変せず透過的に転送しなければならない (MUST)
-- 接続タイムアウトおよび再接続ロジックを実装しなければならない (MUST)
 
-**根拠**: 様々な MCP サーバー実装との互換性を確保するため、複数のトランスポートプロトコルをサポートする。
+**根拠**: 公式 SDK を使用することで、MCP プロトコルの変更に追従しやすくなり、互換性の問題を最小限に抑えられる。
 
 ### IV. Command-Line Configuration
 
@@ -64,7 +68,7 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 
 - すべての設定はコマンドライン引数で指定しなければならない (MUST)
 - 必須引数: プロキシアドレス（`--proxy`）、リモート MCP サーバー URL（`--server`）
-- オプション引数: タイムアウト、ログレベル
+- オプション引数: タイムアウト、ログレベル、トランスポートタイプ
 - 引数のバリデーションを行い、不正な値または必須引数の欠落時は起動を中止しなければならない (MUST)
 - ヘルプオプション（`--help`）で使用方法を表示しなければならない (MUST)
 
@@ -88,13 +92,17 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 - **言語**: Go 1.21+
 - **SOCKS ライブラリ**: `golang.org/x/net/proxy`（Go 準標準ライブラリ）
 - **MCP SDK**: 公式 MCP Go SDK (`github.com/modelcontextprotocol/go-sdk`)
+  - `mcp.SSEClientTransport` - SSE トランスポート
+  - `mcp.StreamableClientTransport` - Streamable HTTP トランスポート
+  - `jsonrpc.DecodeMessage` / `jsonrpc.EncodeMessage` - メッセージのエンコード/デコード
 - **ビルドツール**: Go modules (`go mod`)
 - **パッケージング**: 単一バイナリとして配布（クロスコンパイル対応）
 
 ### 依存関係の方針
 
-- 極力公式または準標準ライブラリのみを使用する (MUST)
-- サードパーティライブラリの追加は、公式に代替がない場合のみ許可される
+- 公式 MCP Go SDK を使用する (MUST)
+- SOCKS プロキシ対応には `golang.org/x/net/proxy` を使用する (MUST)
+- その他のサードパーティライブラリの追加は、公式に代替がない場合のみ許可される
 - 追加する場合は、メンテナンス状況とセキュリティを評価しなければならない
 
 ## Development Workflow
@@ -116,4 +124,4 @@ stdio と SSE/Streamable HTTP 間の MCP プロトコル変換を正確に行わ
 - 複雑さの追加は Complexity Tracking セクションで正当化しなければならない
 - 開発ガイダンスは `docs/development.md` に記載する（必要に応じて作成）
 
-**Version**: 1.2.0 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
+**Version**: 1.3.0 | **Ratified**: 2025-12-19 | **Last Amended**: 2025-12-19
