@@ -200,6 +200,10 @@ Enable debug logging to see detailed information:
 mcp-over-socks --proxy socks5://localhost:1080 --server http://example.com/sse --log debug 2>debug.log
 ```
 
+## Known Limitations
+- **No Automatic Reconnection**: If the SOCKS proxy connection is lost, the bridge will exit. You will need to restart the bridge (or rely on Cursor to restart it).
+- **Authentication**: SOCKS5 authentication is supported via URL syntax: `socks5://user:password@host:port`.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
